@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PersonalDB Dashboard</title>
+  <link rel="stylesheet" href="static/css/theme.css">
+  <style>
+    .stat-value {
+      font-family: var(--ds-font-serif);
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 500;
+      color: var(--ds-heading);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-family: var(--ds-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ds-dim);
+    }
+    .section-title {
+      font-family: var(--ds-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ds-dim);
+      margin-bottom: 12px;
+    }
+    .summary-card {
+      background: var(--ds-surface);
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--ds-accent)55, transparent);
+    }
+    .summary-conversation-title {
+      font-family: var(--ds-font-serif);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--ds-heading);
+      margin-bottom: 6px;
+    }
+    .summary-text {
+      font-family: var(--ds-font-serif);
+      font-size: 14px;
+      color: var(--ds-body);
+      line-height: 1.6;
+    }
+    .sentiment-line {
+      font-family: var(--ds-font-mono);
+      font-size: 12px;
+      color: var(--ds-subtle);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--ds-border);
+    }
+    .sentiment-line:last-child {
+      border-bottom: none;
+    }
+    .generated-at {
+      font-family: var(--ds-font-mono);
+      font-size: 11px;
+      color: var(--ds-dim);
+      text-align: center;
+      margin-top: 48px;
+      padding-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <!-- ================================================================== -->
+  <!-- Header                                                              -->
+  <!-- ================================================================== -->
+  <header class="dashboard-header fade-in" style="animation-delay: 0.0s;">
+    <h1 class="dashboard-title">PersonalDB Dashboard</h1>
+    <p class="dashboard-subtitle">Local message intelligence</p>
+  </header>
+
+  <!-- ================================================================== -->
+  <!-- Overview Stats                                                      -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.1s;">
+    <div class="grid-3">
+      <div class="card">
+        <div class="stat-value">{{ overview.total_messages | default(0) | int | string }}</div>
+        <div class="stat-label">Total Messages</div>
+      </div>
+      <div class="card">
+        <div class="stat-value">{{ overview.total_people | default(0) | int | string }}</div>
+        <div class="stat-label">People</div>
+      </div>
+      <div class="card">
+        <div class="stat-value">{{ overview.total_conversations | default(0) | int | string }}</div>
+        <div class="stat-label">Conversations</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Word Cloud                                                          -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.2s;">
+    <p class="t-label" style="margin-bottom: 12px;">Word Cloud</p>
+    <div class="wordcloud-container">
+      {% if wordcloud %}
+      <img src="data:image/png;base64,{{ wordcloud }}" alt="Word cloud" style="max-width: 100%; height: auto;">
+      {% else %}
+      <p class="t-mono">No text data available for word cloud.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Message Volume: Pie (per person) + Bar (per platform)               -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.3s;">
+    <p class="t-label" style="margin-bottom: 12px;">Message Volume</p>
+    <div class="grid-2">
+      <div class="chart-container">
+        {% if pie_per_person %}
+        <img src="data:image/png;base64,{{ pie_per_person }}" alt="Message volume by person" style="max-width: 100%; height: auto;">
+        {% else %}
+        <p class="t-mono">No data for per-person breakdown.</p>
+        {% endif %}
+      </div>
+      <div class="chart-container">
+        {% if bar_per_platform %}
+        <img src="data:image/png;base64,{{ bar_per_platform }}" alt="Message volume by platform" style="max-width: 100%; height: auto;">
+        {% else %}
+        <p class="t-mono">No platform data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Activity: Timeline (monthly) + Hour-of-day bar chart                -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.4s;">
+    <p class="t-label" style="margin-bottom: 12px;">Activity</p>
+    <div class="grid-2">
+      <div class="chart-container">
+        {% if timeline_monthly %}
+        <img src="data:image/png;base64,{{ timeline_monthly }}" alt="Monthly activity timeline" style="max-width: 100%; height: auto;">
+        {% else %}
+        <p class="t-mono">No timeline data available.</p>
+        {% endif %}
+      </div>
+      <div class="chart-container">
+        {% if bar_hourly %}
+        <img src="data:image/png;base64,{{ bar_hourly }}" alt="Messages by hour of day" style="max-width: 100%; height: auto;">
+        {% else %}
+        <p class="t-mono">No hourly data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Message Patterns: Length histogram + Day-of-week bar chart          -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.5s;">
+    <p class="t-label" style="margin-bottom: 12px;">Message Patterns</p>
+    <div class="grid-2">
+      <div class="chart-container">
+        {% if hist_msg_length %}
+        <img src="data:image/png;base64,{{ hist_msg_length }}" alt="Message length histogram" style="max-width: 100%; height: auto;">
+        {% else %}
+        <p class="t-mono">No message length data available.</p>
+        {% endif %}
+      </div>
+      <div class="chart-container">
+        {% if bar_dow %}
+        <img src="data:image/png;base64,{{ bar_dow }}" alt="Messages by day of week" style="max-width: 100%; height: auto;">
+        {% else %}
+        <p class="t-mono">No day-of-week data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Filter Report                                                       -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.6s;">
+    <p class="t-label" style="margin-bottom: 12px;">Noise Filter Report</p>
+    <div class="chart-container">
+      {% if noise_report %}
+      <img src="data:image/png;base64,{{ noise_report }}" alt="Noise filter report" style="max-width: 100%; height: auto;">
+      {% else %}
+      <p class="t-mono">No filter data available.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Chunk Distribution                                                  -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.7s;">
+    <p class="t-label" style="margin-bottom: 12px;">Chunk Distribution</p>
+    <div class="chart-container">
+      {% if chunk_histogram %}
+      <img src="data:image/png;base64,{{ chunk_histogram }}" alt="Chunk size histogram" style="max-width: 100%; height: auto;">
+      {% else %}
+      <p class="t-mono">No chunk data available.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- LLM Insights                                                        -->
+  <!-- ================================================================== -->
+  <section class="fade-in" style="animation-delay: 0.8s;">
+    <p class="t-label" style="margin-bottom: 12px;">LLM Insights</p>
+
+    {% if not has_llm %}
+    <!-- ------------------------------------------------------------------ -->
+    <!-- No LLM data                                                        -->
+    <!-- ------------------------------------------------------------------ -->
+    <div class="llm-section">
+      <p class="t-mono">
+        LLM insights pending &mdash; run <code>run_llm_features.py</code> to generate.
+      </p>
+    </div>
+
+    {% else %}
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Conversation Summaries                                             -->
+    <!-- ------------------------------------------------------------------ -->
+    {% if conversation_summaries is not none and conversation_summaries | length > 0 %}
+    <p class="t-mono" style="margin-bottom: 8px; color: var(--ds-dim);">Conversation Summaries</p>
+    <div style="margin-bottom: 24px;">
+      {% for summary in conversation_summaries %}
+      <div class="summary-card">
+        <div class="summary-conversation-title">
+          {{ summary.get("title", summary.get("conversation_title", "Conversation " + loop.index|string)) }}
+        </div>
+        <p class="summary-text">
+          {{ summary.get("summary", summary.get("text", "")) }}
+        </p>
+        {% if summary.get("message_count") %}
+        <p class="t-mono" style="margin-top: 8px;">
+          {{ summary.message_count }} messages
+          {% if summary.get("participant_count") %} &middot; {{ summary.participant_count }} participants{% endif %}
+        </p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Topic Clusters                                                     -->
+    <!-- ------------------------------------------------------------------ -->
+    {% if topic_clusters is not none and topic_clusters | length > 0 %}
+    <div class="llm-section" style="margin-bottom: 24px;">
+      <p class="t-mono" style="margin-bottom: 8px; color: var(--ds-dim);">Topic Clusters</p>
+      {% for cluster in topic_clusters %}
+      <div style="margin-bottom: 12px;">
+        <span class="tag tag-accent" style="margin-right: 6px;">
+          {{ cluster.get("topic_name", cluster.get("name", "Topic " + loop.index|string)) }}
+        </span>
+        {% if cluster.get("message_count") %}
+        <span class="t-mono">{{ cluster.message_count }} messages</span>
+        {% endif %}
+        {% set keywords = cluster.get("keywords", cluster.get("terms", [])) %}
+        {% if keywords | length > 0 %}
+        <div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
+          {% for kw in keywords %}
+          <span class="tag">{{ kw }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Sentiment Trends                                                   -->
+    <!-- ------------------------------------------------------------------ -->
+    {% if sentiment_trends is not none and sentiment_trends | length > 0 %}
+    <div class="llm-section">
+      <p class="t-mono" style="margin-bottom: 8px; color: var(--ds-dim);">Sentiment Trends</p>
+      {% for trend in sentiment_trends %}
+      <div class="sentiment-line">
+        <strong style="color: var(--ds-body);">
+          {{ trend.get("conversation_id", trend.get("title", "Conversation " + loop.index|string)) }}
+        </strong>
+        {% set desc = trend.get("trend_description", trend.get("description", trend.get("text", ""))) %}
+        {% if desc %}
+        <span style="color: var(--ds-subtle);"> &ndash; {{ desc }}</span>
+        {% endif %}
+        {% set overall = trend.get("overall_sentiment", trend.get("sentiment", "")) %}
+        {% if overall %}
+        <span class="tag tag-accent" style="margin-left: 8px;">{{ overall }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+    <!-- end has_llm -->
+
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Footer / Generated timestamp                                        -->
+  <!-- ================================================================== -->
+  <p class="generated-at">
+    Generated {{ generated_at | default("") }}
+  </p>
+
+</div>
+</body>
+</html>
