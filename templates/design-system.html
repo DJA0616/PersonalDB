@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DesignSystem</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0a; color: #c8c8c8; font-family: 'EB Garamond', Georgia, serif; font-size: 16px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #0a0a0a; }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .fade { animation: fadeUp 0.4s ease forwards; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { opacity: 1; }
+  input:focus { outline: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+
+
+// ============================================================
+// DESIGN SYSTEM — MONOCHROME PHYSICS/MATH THEME
+// Reference this component for all future artifact styling
+// ============================================================
+
+const DS = {
+  colors: {
+    bg:       "#0a0a0a",
+    surface:  "#111111",
+    elevated: "#181818",
+    border:   "#222222",
+    muted:    "#2a2a2a",
+    dim:      "#555555",
+    subtle:   "#888888",
+    body:     "#c8c8c8",
+    heading:  "#efefef",
+    white:    "#f8f8f8",
+    accent:   "#7eb8d4",
+    accentAlt:"#a0d4b0",
+    glow:     "rgba(126,184,212,0.18)",
+    glowStr:  "rgba(126,184,212,0.5)",
+  },
+  font: {
+    serif:  "'EB Garamond', 'Garamond', 'Georgia', serif",
+    mono:   "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  radius: "4px",
+  radiusMd: "6px",
+};
+
+const globalCSS = `
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@300;400&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: ${DS.colors.bg};
+    color: ${DS.colors.body};
+    font-family: ${DS.font.serif};
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .geo-canvas {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+  }
+
+  .card {
+    background: ${DS.colors.surface};
+    border: 1px solid ${DS.colors.border};
+    border-radius: ${DS.radius};
+    padding: 24px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, ${DS.colors.accent}55, transparent);
+  }
+
+  .card-elevated {
+    background: ${DS.colors.elevated};
+    border: 1px solid ${DS.colors.muted};
+    border-radius: ${DS.radius};
+    padding: 20px 24px;
+  }
+
+  .t-display {
+    font-family: ${DS.font.serif};
+    font-size: clamp(28px, 4vw, 46px);
+    font-weight: 500;
+    color: ${DS.colors.heading};
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .t-h1 {
+    font-family: ${DS.font.serif};
+    font-size: clamp(22px, 3vw, 32px);
+    font-weight: 500;
+    color: ${DS.colors.heading};
+    letter-spacing: -0.01em;
+  }
+  .t-h2 {
+    font-family: ${DS.font.serif};
+    font-size: 20px;
+    font-weight: 500;
+    color: ${DS.colors.heading};
+    letter-spacing: 0;
+  }
+  .t-label {
+    font-family: ${DS.font.mono};
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: ${DS.colors.dim};
+  }
+  .t-accent { color: ${DS.colors.accent}; }
+  .t-body {
+    font-family: ${DS.font.serif};
+    font-size: 16px;
+    color: ${DS.colors.body};
+    line-height: 1.75;
+  }
+  .t-mono {
+    font-family: ${DS.font.mono};
+    font-size: 13px;
+    font-weight: 300;
+    color: ${DS.colors.subtle};
+  }
+  .t-italic { font-style: italic; }
+
+  .rule { border: none; border-top: 1px solid ${DS.colors.border}; margin: 24px 0; }
+  .rule-accent { border: none; border-top: 1px solid ${DS.colors.accent}44; margin: 24px 0; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: ${DS.font.serif};
+    font-size: 15px;
+    padding: 8px 18px;
+    border-radius: ${DS.radius};
+    border: 1px solid ${DS.colors.border};
+    background: ${DS.colors.surface};
+    color: ${DS.colors.body};
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  .btn:hover { border-color: ${DS.colors.accent}77; color: ${DS.colors.heading}; box-shadow: 0 0 12px ${DS.colors.glow}; }
+  .btn-primary { border-color: ${DS.colors.accent}55; color: ${DS.colors.accent}; }
+  .btn-primary:hover { background: ${DS.colors.accent}11; box-shadow: 0 0 18px ${DS.colors.glow}; }
+  .btn-ghost { background: transparent; border-color: transparent; color: ${DS.colors.subtle}; }
+  .btn-ghost:hover { color: ${DS.colors.body}; border-color: ${DS.colors.border}; }
+
+  .tag {
+    display: inline-block;
+    font-family: ${DS.font.mono};
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: ${DS.radius};
+    border: 1px solid ${DS.colors.border};
+    color: ${DS.colors.dim};
+    background: transparent;
+  }
+  .tag-accent { border-color: ${DS.colors.accent}44; color: ${DS.colors.accent}; }
+
+  .math-block {
+    font-family: ${DS.font.mono};
+    font-size: 14px;
+    font-weight: 300;
+    background: ${DS.colors.bg};
+    border: 1px solid ${DS.colors.border};
+    border-left: 2px solid ${DS.colors.accent}88;
+    border-radius: ${DS.radius};
+    padding: 14px 18px;
+    color: ${DS.colors.subtle};
+    letter-spacing: 0.03em;
+  }
+  .math-block .hl { color: ${DS.colors.accent}; }
+
+  .meter-track { height: 2px; background: ${DS.colors.muted}; border-radius: 1px; overflow: hidden; }
+  .meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, ${DS.colors.accent}88, ${DS.colors.accent});
+    box-shadow: 0 0 8px ${DS.colors.glowStr};
+    border-radius: 1px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .diff { display: inline-flex; gap: 3px; align-items: center; }
+  .diff-dot { width: 5px; height: 5px; border-radius: 50%; background: ${DS.colors.muted}; }
+  .diff-dot.on { background: ${DS.colors.accent}; box-shadow: 0 0 4px ${DS.colors.glowStr}; }
+
+  .glow-text { text-shadow: 0 0 20px ${DS.colors.glowStr}, 0 0 40px ${DS.colors.glow}; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .flex-row { display: flex; align-items: center; gap: 12px; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeUp 0.5s ease forwards; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: ${DS.colors.bg}; }
+  ::-webkit-scrollbar-thumb { background: ${DS.colors.muted}; border-radius: 2px; }
+`;
+
+function GeoBackground() {
+  return (
+    <svg style={{ position: "fixed", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="grd1" cx="80%" cy="10%" r="40%">
+          <stop offset="0%" stopColor="#7eb8d4" stopOpacity="0.04" />
+          <stop offset="100%" stopColor="#7eb8d4" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="grd2" cx="10%" cy="90%" r="35%">
+          <stop offset="0%" stopColor="#a0d4b0" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="#a0d4b0" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grd1)" />
+      <rect width="100%" height="100%" fill="url(#grd2)" />
+      <g opacity="0.07" stroke="#7eb8d4" strokeWidth="0.6" fill="none">
+        <polygon points="780,20 860,80 700,80" />
+        <polygon points="860,80 940,20 940,140" />
+        <polygon points="700,80 780,140 620,140" />
+        <line x1="780" y1="20" x2="780" y2="140" />
+        <line x1="700" y1="80" x2="940" y2="80" />
+      </g>
+      <g opacity="0.055" stroke="#a0d4b0" strokeWidth="0.6" fill="none">
+        <circle cx="60" cy="92%" r="60" />
+        <circle cx="60" cy="92%" r="110" />
+        <circle cx="60" cy="92%" r="160" />
+        <circle cx="60" cy="92%" r="210" />
+      </g>
+      <g opacity="0.025" stroke="#7eb8d4" strokeWidth="0.5">
+        {Array.from({ length: 20 }).map((_, i) => <line key={`h${i}`} x1="0" y1={i * 60} x2="100%" y2={i * 60} />)}
+        {Array.from({ length: 30 }).map((_, i) => <line key={`v${i}`} x1={i * 80} y1="0" x2={i * 80} y2="100%" />)}
+      </g>
+      {[[120,200],[300,440],[500,180],[650,380],[820,260],[200,580],[740,500],[400,650]].map(([cx, cy], i) => (
+        <circle key={i} cx={cx} cy={cy} r="1.5" fill="#7eb8d4" opacity="0.18" />
+      ))}
+    </svg>
+  );
+}
+
+function DesignSystem() {
+  const [active, setActive] = useState("overview");
+  const tabs = ["overview", "type", "components", "layout"];
+
+  return (
+    <>
+      <style>{globalCSS}</style>
+      <GeoBackground />
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 860, margin: "0 auto", padding: "48px 24px 80px" }}>
+        <div className="fade-in" style={{ marginBottom: 48 }}>
+          <span className="t-label" style={{ marginBottom: 10, display: "block" }}>Project Design System · v1.0</span>
+          <h1 className="t-display glow-text" style={{ marginBottom: 10 }}>Monochrome<br /><em>Physics</em> Theme</h1>
+          <p className="t-body" style={{ color: DS.colors.dim, maxWidth: 500, fontStyle: "italic" }}>
+            A unified visual language for mathematics and physics pedagogy. Bespoke, editorial, precise.
+          </p>
+        </div>
+        <div className="flex-row" style={{ marginBottom: 36, gap: 4 }}>
+          {tabs.map(t => (
+            <button key={t} className={`btn ${active === t ? "btn-primary" : "btn-ghost"}`} onClick={() => setActive(t)} style={{ fontSize: 13, padding: "6px 14px" }}>{t}</button>
+          ))}
+        </div>
+        <hr className="rule-accent" />
+        {active === "overview" && (
+          <div className="stack fade-in" style={{ gap: 20 }}>
+            <div className="card">
+              <p className="t-label" style={{ marginBottom: 14 }}>Color Palette</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {[["BG",DS.colors.bg],["Surface",DS.colors.surface],["Elevate",DS.colors.elevated],["Border",DS.colors.border],["Muted",DS.colors.muted],["Dim",DS.colors.dim],["Subtle",DS.colors.subtle],["Body",DS.colors.body],["Heading",DS.colors.heading],["Accent",DS.colors.accent],["Alt",DS.colors.accentAlt]].map(([name, hex]) => (
+                  <div key={name} style={{ textAlign: "center" }}>
+                    <div style={{ width: 44, height: 44, background: hex, borderRadius: DS.radius, border: `1px solid ${DS.colors.muted}`, marginBottom: 5, boxShadow: (name === "Accent" || name === "Alt") ? `0 0 10px ${DS.colors.glow}` : "none" }} />
+                    <div className="t-mono" style={{ fontSize: 9 }}>{name}</div>
+                    <div className="t-mono" style={{ fontSize: 8, color: DS.colors.dim }}>{hex}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <p className="t-label" style={{ marginBottom: 14 }}>Accent Usage Rule</p>
+              <p className="t-body" style={{ fontSize: 14 }}>
+                Accent <span className="t-accent">steel-blue (#7eb8d4)</span> and alt <span style={{ color: DS.colors.accentAlt }}>sage (#a0d4b0)</span> are used <em>only</em> as thin lines, glows, underlines, and text highlights — never as filled backgrounds.
+              </p>
+              <div style={{ marginTop: 16 }}>
+                <div className="meter-track"><div className="meter-fill" style={{ width: "62%" }} /></div>
+                <div className="t-mono" style={{ marginTop: 6, fontSize: 10 }}>— example: progress meter uses glow accent</div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop: 60, borderTop: `1px solid ${DS.colors.border}`, paddingTop: 20 }}>
+          <div className="flex-between">
+            <span className="t-mono" style={{ fontSize: 10 }}>design-system · mono-physics · v1.0</span>
+            <span className="t-mono" style={{ fontSize: 10, color: DS.colors.dim }}>all future artifacts reference this</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(<DesignSystem />);
+</script>
+</body>
+</html>
