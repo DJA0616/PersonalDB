@@ -1,0 +1,86 @@
+# PersonalDB — Default Configuration
+# Override any value in config/local.yaml (gitignored)
+
+# ── Models ──────────────────────────────────────────
+models:
+  embed: "nomic-embed-text"
+  generate: "llama3.1:8b"
+
+# ── Ollama ──────────────────────────────────────────
+ollama:
+  api_url: "http://localhost:11434/api/embeddings"
+  generate_url: "http://localhost:11434/api/generate"
+  embed_batch_size: 50
+  request_timeout: 120
+
+# ── Paths ───────────────────────────────────────────
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  chroma: "data/chroma"
+  config_dir: "config"
+  style_examples: "config/style_examples.md"
+  dashboard_output: "dashboard/index.html"
+
+# ── Preprocessing ───────────────────────────────────
+preprocess:
+  min_words: 10
+  max_chunk_size: 5
+  min_content_length: 2
+  acknowledgements:
+    - "ok"
+    - "lol"
+    - "haha"
+    - "yeah"
+    - "haha yeah"
+    - "lmao"
+    - "nice"
+    - "cool"
+    - "okay"
+    - "alright"
+    - "sure"
+    - "thanks"
+    - "ty"
+    - "np"
+    - "no problem"
+    - "got it"
+    - "sounds good"
+    - "kk"
+
+# ── Embedding ───────────────────────────────────────
+embed:
+  collection_name: "instagram_chunks"
+  incremental: false
+  batch_size: 50
+
+# ── Retrieval ───────────────────────────────────────
+retrieve:
+  top_k: 3
+  static_layer_weight: 0.3
+  dynamic_layer_weight: 0.7
+
+# ── Generation ──────────────────────────────────────
+generate:
+  max_context_tokens: 2048
+  temperature: 0.7
+  max_tokens: 300
+  system_prompt: "You are an AI assistant that drafts replies in the user's personal communication style. Write like the user, matching their tone, vocabulary, and conversational patterns."
+
+# ── Dashboard ───────────────────────────────────────
+dashboard:
+  llm_cache_dir: "dashboard/llm_cache"
+  embedding_coords_file: "dashboard/data/embedding_coords.json"
+  umap_reducer_file: "dashboard/data/umap_reducer.pkl"
+  plotly_output_dir: "dashboard/data"
+  template_dir: "dashboard/templates"
+  static_dir: "dashboard/static"
+  n_clusters: 5
+  sentiment_sample_size: 15
+  summary_sample_size: 30
+  cluster_sample_size: 20
+
+# ── Logging ─────────────────────────────────────────
+logging:
+  level: "INFO"
+  format: "[%(asctime)s] %(levelname)s %(name)s: %(message)s"
+  datefmt: "%Y-%m-%d %H:%M:%S"

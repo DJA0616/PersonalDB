@@ -6,6 +6,9 @@ chroma/
 *.db
 *.sqlite3
 
+# Config overrides (local only)
+config/local.yaml
+
 # Environment
 .env
 .venv/

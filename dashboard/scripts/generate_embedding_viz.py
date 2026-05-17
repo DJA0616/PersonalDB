@@ -36,6 +36,11 @@ EMBEDDING_MODEL = "nomic-embed-text"
 DESIGN_COLORS = ["#7eb8d4", "#a0d4b0", "#f8f8f8", "#c8c8c8", "#888888"]
 DEFAULT_COLLECTION_NAME = "instagram_chunks"
 
+# Paths set from config in main(); defaults here for direct-import use
+UMAP_REDUCER_PATH = Path("dashboard/data/umap_reducer.pkl")
+EMBEDDING_COORDS_PATH = Path("dashboard/data/embedding_coords.json")
+PLOTLY_OUTPUT_DIR = Path("dashboard/data")
+
 
 # ---------------------------------------------------------------------------
 # Logging utility
@@ -548,11 +553,10 @@ def query_embedding(
     log(f"Generated embedding ({len(phrase_emb)} dims)")
 
     # Load cached UMAP reducer
-    reducer_path = Path("dashboard/data/umap_reducer.pkl")
-    if not reducer_path.exists():
+    if not UMAP_REDUCER_PATH.exists():
         print("Error: No UMAP reducer found. Run without --query first to fit the reducer.")
         sys.exit(1)
-    with open(reducer_path, "rb") as f:
+    with open(UMAP_REDUCER_PATH, "rb") as f:
         reducer = pickle.load(f)
 
     # Transform query into 2D
@@ -560,11 +564,10 @@ def query_embedding(
     qx, qy = float(query_2d[0, 0]), float(query_2d[0, 1])
 
     # Load existing coords
-    coords_path = Path("dashboard/data/embedding_coords.json")
-    if not coords_path.exists():
+    if not EMBEDDING_COORDS_PATH.exists():
         print("Error: No coordinate data found. Run without --query first.")
         sys.exit(1)
-    with open(coords_path, "r", encoding="utf-8") as f:
+    with open(EMBEDDING_COORDS_PATH, "r", encoding="utf-8") as f:
         records = json.load(f)
 
     # Find 10 nearest neighbors in 2D space
@@ -597,10 +600,9 @@ def query_embedding(
     # Generate and save Plotly semantic field figure
     fig = _build_semantic_field_figure(records, qx, qy, nearest, phrase)
 
-    out_dir = Path("dashboard/data")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    PLOTLY_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     div = pio.to_html(fig, full_html=False, include_plotlyjs=False)
-    (out_dir / "plotly_semantic_field.html").write_text(div, encoding="utf-8")
+    (PLOTLY_OUTPUT_DIR / "plotly_semantic_field.html").write_text(div, encoding="utf-8")
     log("Saved plotly_semantic_field.html")
 
     return result
@@ -714,17 +716,15 @@ def generate_all_views(
 
     # 4. Dimensionality reduction
     emb_array = np.array(embeddings)
-    reducer_path = Path("dashboard/data/umap_reducer.pkl")
-    coords = run_dim_reduction(emb_array, reducer_path, force)
+    coords = run_dim_reduction(emb_array, UMAP_REDUCER_PATH, force)
 
     # 5. Save coordinate records
-    coords_path = Path("dashboard/data/embedding_coords.json")
     records = save_coords_json(
-        coords, ids, documents, metadatas, chunk_sender, coords_path
+        coords, ids, documents, metadatas, chunk_sender, EMBEDDING_COORDS_PATH
     )
 
     # 6. Generate and save views
-    out_dir = Path("dashboard/data")
+    out_dir = PLOTLY_OUTPUT_DIR
 
     fig1 = generate_global_map(records)
     save_plotly_div(fig1, out_dir / "plotly_global_map.html")
@@ -764,14 +764,29 @@ def generate_all_views(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    # Path hack: allow dashboard/scripts/ to import from src/
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from src.config import get_config
+    cfg = get_config()
+
+    # Override module-level constants from config
+    global EMBEDDING_MODEL, UMAP_REDUCER_PATH, EMBEDDING_COORDS_PATH, PLOTLY_OUTPUT_DIR
+    EMBEDDING_MODEL = cfg["models"]["embed"]
+    UMAP_REDUCER_PATH = Path(cfg["dashboard"]["umap_reducer_file"])
+    EMBEDDING_COORDS_PATH = Path(cfg["dashboard"]["embedding_coords_file"])
+    PLOTLY_OUTPUT_DIR = Path(cfg["dashboard"]["plotly_output_dir"])
+
+    default_chroma = str(cfg["paths"]["chroma"])
+    default_input = str(cfg["paths"]["data_processed"]) + "/messages.jsonl"
+
     parser = argparse.ArgumentParser(
         description="Visualize ChromaDB embeddings in 2D with UMAP + Plotly"
     )
     parser.add_argument(
         "--chroma-path",
         type=str,
-        default="data/chroma",
-        help="Path to ChromaDB persistence directory (default: data/chroma)",
+        default=default_chroma,
+        help=f"Path to ChromaDB persistence directory (default: {default_chroma})",
     )
     parser.add_argument(
         "--collection-name",
@@ -782,8 +797,8 @@ def main() -> None:
     parser.add_argument(
         "--input",
         type=str,
-        default="data/processed/messages.jsonl",
-        help="Path to normalized messages JSONL (default: data/processed/messages.jsonl)",
+        default=default_input,
+        help=f"Path to normalized messages JSONL (default: {default_input})",
     )
     parser.add_argument(
         "--force",
@@ -798,8 +813,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Ensure dashboard/data directory exists
-    Path("dashboard/data").mkdir(parents=True, exist_ok=True)
+    # Ensure plotly output directory exists
+    PLOTLY_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.query:
         result = query_embedding(

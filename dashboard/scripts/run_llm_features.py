@@ -460,21 +460,41 @@ def generate_sentiment_trends(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    # Path hack: allow dashboard/scripts/ to import from src/
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from src.config import get_config
+    cfg = get_config()
+
+    # Override module-level constants from config
+    global GENERATE_MODEL, EMBED_MODEL, CACHE_DIR
+    global EMBED_BATCH_SIZE, CLUSTER_SAMPLE_SIZE, SENTIMENT_SAMPLE_SIZE, SUMMARY_SAMPLE_SIZE
+    GENERATE_MODEL = cfg["models"]["generate"]
+    EMBED_MODEL = cfg["models"]["embed"]
+    CACHE_DIR = Path(cfg["dashboard"]["llm_cache_dir"])
+    EMBED_BATCH_SIZE = cfg["ollama"]["embed_batch_size"]
+    CLUSTER_SAMPLE_SIZE = cfg["dashboard"]["cluster_sample_size"]
+    SENTIMENT_SAMPLE_SIZE = cfg["dashboard"]["sentiment_sample_size"]
+    SUMMARY_SAMPLE_SIZE = cfg["dashboard"]["summary_sample_size"]
+
+    default_input = str(cfg["paths"]["data_processed"]) + "/messages.jsonl"
+    default_n_clusters = cfg["dashboard"]["n_clusters"]
+
     parser = argparse.ArgumentParser(
         description="Generate LLM-powered dashboard features for PersonalDB."
     )
     parser.add_argument(
-        "--input", type=str, required=True,
+        "--input", type=str, default=default_input,
         help="Path to normalized JSON(L) file of messages "
-             "(keys: sender_name, content, timestamp_ms, platform, conversation_id)."
+             "(keys: sender_name, content, timestamp_ms, platform, conversation_id). "
+             f"(default: {default_input})"
     )
     parser.add_argument(
         "--force", action="store_true",
         help="Regenerate all features even when valid cache files exist."
     )
     parser.add_argument(
-        "--n-clusters", type=int, default=5,
-        help="Number of topic clusters for KMeans (default: 5)."
+        "--n-clusters", type=int, default=default_n_clusters,
+        help=f"Number of topic clusters for KMeans (default: {default_n_clusters})."
     )
     parser.add_argument(
         "--skip-summaries", action="store_true",

@@ -217,16 +217,28 @@ def generate_chunk_visualization(chunks_data):
 
 
 def main():
+    # Path hack: allow dashboard/scripts/ to import from src/
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).resolve().parent.parent.parent))
+    from src.config import get_config
+    cfg = get_config()
+
+    default_input = str(cfg["paths"]["data_processed"]) + "/messages.jsonl"
+    default_output = str(cfg["paths"]["dashboard_output"])
+    default_chunks = str(cfg["paths"]["data_processed"]) + "/chunks.json"
+    default_llm_dir = str(cfg["dashboard"]["llm_cache_dir"])
+    default_template_dir = str(cfg["dashboard"]["template_dir"])
+
     parser = argparse.ArgumentParser(description="Generate PersonalDB dashboard HTML")
     parser.add_argument(
         "--input",
-        default="data/processed/messages.jsonl",
-        help="Path to normalized JSONL messages file (default: data/processed/messages.jsonl)",
+        default=default_input,
+        help=f"Path to normalized JSONL messages file (default: {default_input})",
     )
     parser.add_argument(
         "--output",
-        default="dashboard/index.html",
-        help="Output path for rendered dashboard HTML (default: dashboard/index.html)",
+        default=default_output,
+        help=f"Output path for rendered dashboard HTML (default: {default_output})",
     )
     parser.add_argument(
         "--skip-llm",
@@ -235,13 +247,13 @@ def main():
     )
     parser.add_argument(
         "--chunks",
-        default="data/processed/chunks.json",
-        help="Path to chunks JSON file (default: data/processed/chunks.json)",
+        default=default_chunks,
+        help=f"Path to chunks JSON file (default: {default_chunks})",
     )
     parser.add_argument(
         "--llm-dir",
-        default="data/processed/llm",
-        help="Directory containing cached LLM results (default: data/processed/llm)",
+        default=default_llm_dir,
+        help=f"Directory containing cached LLM results (default: {default_llm_dir})",
     )
     args = parser.parse_args()
 
@@ -293,7 +305,7 @@ def main():
             )
 
     # -- Render ------------------------------------------------------------------
-    template_dir = os.path.join(project_root, "dashboard", "templates")
+    template_dir = os.path.join(project_root, default_template_dir)
     jinja_env = Environment(loader=FileSystemLoader(template_dir))
     template = jinja_env.get_template("dashboard.html")
 

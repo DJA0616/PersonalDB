@@ -14,8 +14,11 @@ Usage (run from project root):
 
 import argparse
 import json
+import os
 from pathlib import Path
 from collections import Counter
+
+from src.config import get_config
 
 
 def fix_encoding(s):
@@ -108,13 +111,16 @@ def parse(inbox, me):
 
 
 def main():
+    cfg = get_config()
+
     ap = argparse.ArgumentParser(description='Parse Instagram message export.')
     ap.add_argument('--export-root', required=True,
                     help='Path to the extracted Instagram export folder')
     ap.add_argument('--me', help='Your display name as it appears in sender_name')
     ap.add_argument('--list-senders', action='store_true',
                     help='List all sender names with counts, then exit')
-    ap.add_argument('--out', default='data/processed/instagram_normalized.json',
+    ap.add_argument('--out',
+                    default=os.path.join(cfg['paths']['data_processed'], 'instagram_normalized.json'),
                     help='Output path for normalized records')
     args = ap.parse_args()
 

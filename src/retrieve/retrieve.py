@@ -15,19 +15,18 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-OLLAMA_API_URL = "http://localhost:11434/api/embeddings"
-EMBEDDING_MODEL = "nomic-embed-text"
+from src.config import get_config
 
 
-def get_embedding(text: str) -> List[float]:
+def get_embedding(text: str, model: str, api_url: str) -> List[float]:
     """
     Get embedding vector for a text using Ollama's API.
     """
     payload = {
-        "model": EMBEDDING_MODEL,
+        "model": model,
         "prompt": text
     }
-    response = requests.post(OLLAMA_API_URL, json=payload)
+    response = requests.post(api_url, json=payload)
     response.raise_for_status()
     return response.json()["embedding"]
 
@@ -50,13 +49,18 @@ def load_static_style_examples(style_examples_path: Path) -> List[str]:
 
 def main():
     import argparse
+    cfg = get_config()
+
     parser = argparse.ArgumentParser(description='Retrieve context for generation')
     parser.add_argument('--query', type=str, required=True, help='The query text (e.g., the conversation context for which we want to generate a reply)')
-    parser.add_argument('--db-path', type=str, default='data/chroma', help='Path to ChromaDB persistence directory')
-    parser.add_argument('--collection-name', type=str, default='instagram_chunks', help='Name of the ChromaDB collection')
-    parser.add_argument('--style-examples', type=str, default='config/style_examples.md', help='Path to static style examples file')
-    parser.add_argument('--top-k', type=int, default=5, help='Number of dynamic results to retrieve')
+    parser.add_argument('--db-path', type=str, default=cfg['paths']['chroma'], help='Path to ChromaDB persistence directory')
+    parser.add_argument('--collection-name', type=str, default=cfg['embed']['collection_name'], help='Name of the ChromaDB collection')
+    parser.add_argument('--style-examples', type=str, default=cfg['paths']['style_examples'], help='Path to static style examples file')
+    parser.add_argument('--top-k', type=int, default=cfg['retrieve']['top_k'], help='Number of dynamic results to retrieve')
     args = parser.parse_args()
+
+    embed_model = cfg['models']['embed']
+    ollama_api_url = cfg['ollama']['api_url']
 
     # Load static style examples
     style_path = Path(args.style_examples)
@@ -80,7 +84,7 @@ def main():
     if collection is not None:
         # Embed the query
         try:
-            query_embedding = get_embedding(args.query)
+            query_embedding = get_embedding(args.query, embed_model, ollama_api_url)
         except Exception as e:
             print(f"Failed to embed query: {e}", file=sys.stderr)
             query_embedding = None

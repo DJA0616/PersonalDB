@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any
 
+from src.config import get_config
+
 
 def is_emoji_only(text: str) -> bool:
     """
@@ -20,11 +22,13 @@ def is_emoji_only(text: str) -> bool:
     return len(stripped) == 0
 
 
-def is_pure_acknowledgement(text: str) -> bool:
+def is_pure_acknowledgement(text: str, cfg=None) -> bool:
     """
     Check if text is a pure acknowledgement like 'ok', 'lol', 'haha yeah'.
     """
-    acknowledgements = {'ok', 'okay', 'kk', 'k', 'lol', 'lolz', 'haha', 'hahaha', 'yeah', 'yes', 'yep', 'yup', 'np', 'no problem'}
+    if cfg is None:
+        cfg = get_config()
+    acknowledgements = set(cfg['preprocess']['acknowledgements'])
     # Normalize: lower case, remove punctuation, extra spaces
     normalized = re.sub(r'[^\w\s]', '', text.lower()).strip()
     # Collapse multiple spaces
@@ -41,11 +45,16 @@ def should_keep(message: Dict[str, Any]) -> bool:
     return bool(text)
 
 
-def enrich_message(message: Dict[str, Any]) -> Dict[str, Any]:
+def enrich_message(message: Dict[str, Any], cfg=None) -> Dict[str, Any]:
     """
     Enrich short, emoji-only, or acknowledgement messages with context
     from the preceding message so tone/meaning is preserved.
     """
+    if cfg is None:
+        cfg = get_config()
+    min_words = cfg['preprocess']['min_words']
+    min_content_length = cfg['preprocess']['min_content_length']
+
     text = message.get('text', '').strip()
     context = message.get('context', {})
     if context and context.get('text'):
@@ -54,10 +63,10 @@ def enrich_message(message: Dict[str, Any]) -> Dict[str, Any]:
         if is_emoji_only(text):
             message['enriched_text'] = f'[{ctx_sender}: "{ctx_text}"] [reacted: {text}]'
             message['condensed'] = True
-        elif is_pure_acknowledgement(text):
+        elif is_pure_acknowledgement(text, cfg):
             message['enriched_text'] = f'[{ctx_sender}: "{ctx_text}"] [replied: {text}]'
             message['condensed'] = True
-        elif len(text.split()) < 3:
+        elif len(text.split()) < min_words:
             message['enriched_text'] = f'[{ctx_sender}: "{ctx_text}"] {text}'
             message['condensed'] = True
         else:
@@ -65,7 +74,7 @@ def enrich_message(message: Dict[str, Any]) -> Dict[str, Any]:
             message['condensed'] = False
     else:
         message['enriched_text'] = text
-        message['condensed'] = len(text.split()) < 3
+        message['condensed'] = len(text.split()) < min_words
     return message
 
 
@@ -111,11 +120,15 @@ def tag_chunk(chunk: List[Dict[str, Any]]) -> Dict[str, Any]:
     return tagged
 
 
-def chunk_messages(messages: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+def chunk_messages(messages: List[Dict[str, Any]], cfg=None) -> List[List[Dict[str, Any]]]:
     """
     Group consecutive messages per conversation into chunks.
-    We'll split by conversation_id and then by a simple max chunk size (e.g., 5 messages).
+    We'll split by conversation_id and then by a simple max chunk size.
     """
+    if cfg is None:
+        cfg = get_config()
+    max_chunk_size = cfg['preprocess']['max_chunk_size']
+
     # Sort by conversation_id and timestamp
     sorted_msgs = sorted(messages, key=lambda m: (m.get('conversation_id', ''), m.get('timestamp_ms', 0)))
 
@@ -132,8 +145,8 @@ def chunk_messages(messages: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]
                 current_chunk = []
             current_convo = convo_id
 
-        # Start new chunk if current chunk reaches max size (e.g., 5)
-        if len(current_chunk) >= 5:
+        # Start new chunk if current chunk reaches max size
+        if len(current_chunk) >= max_chunk_size:
             chunks.append(current_chunk)
             current_chunk = []
 
@@ -148,6 +161,8 @@ def chunk_messages(messages: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]
 
 def main():
     import argparse
+    cfg = get_config()
+
     parser = argparse.ArgumentParser(description='Preprocess normalized messages for PersonalDB')
     parser.add_argument('--input', type=str, required=True, help='Input JSONL or JSON file of normalized messages')
     parser.add_argument('--output', type=str, required=True, help='Output JSON file for tagged chunks')
@@ -171,11 +186,11 @@ def main():
                 messages = data.get('messages', [])
 
     # Enrich and filter
-    enriched = [enrich_message(msg) for msg in messages if should_keep(msg)]
+    enriched = [enrich_message(msg, cfg) for msg in messages if should_keep(msg)]
     print(f"Kept {len(enriched)} / {len(messages)} messages after filtering (dropped {len(messages) - len(enriched)})")
 
     # Chunk
-    chunked = chunk_messages(enriched)
+    chunked = chunk_messages(enriched, cfg)
     print(f"Created {len(chunked)} chunks")
 
     # Tag each chunk
