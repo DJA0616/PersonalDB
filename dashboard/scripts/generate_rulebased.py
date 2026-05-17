@@ -286,7 +286,7 @@ def generate_timeline(dates, counts, title, xlabel='Date', ylabel='Message Count
     ax.tick_params(axis='y', colors='#c8c8c8')
     ax.spines['bottom'].set_color('#222222')
     ax.spines['top'].set_color('#222222')
-    ax.spines['right'].set_color='#222222')
+    ax.spines['right'].set_color('#222222')
     ax.spines['left'].set_color('#222222')
     ax.set_facecolor('#0a0a0a')
     fig.patch.set_facecolor('#111111')

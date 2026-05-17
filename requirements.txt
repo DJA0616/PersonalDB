@@ -1,2 +1,10 @@
 chromadb
 ollama
+scikit-learn
+numpy
+umap-learn
+plotly
+wordcloud
+matplotlib
+jinja2
+requests
