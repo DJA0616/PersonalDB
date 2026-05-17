@@ -12,6 +12,8 @@ from chromadb.config import Settings
 import requests
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 OLLAMA_API_URL = "http://localhost:11434/api/embeddings"
 EMBEDDING_MODEL = "nomic-embed-text"
