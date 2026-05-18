@@ -35,3 +35,21 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Dashboard generated artifacts
+dashboard/index.html
+dashboard/llm_cache/
+dashboard/data/
+
+# Build artifacts
+*.egg-info/
+
+# Screenshots and debug dumps
+*-check.png
+*-screenshot.png
+page-snapshot.yml
+context.json
+personality_report.txt
+
+# Playwright MCP
+.playwright-mcp/

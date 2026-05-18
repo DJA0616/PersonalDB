@@ -1,0 +1,108 @@
+<!-- ================================================================== -->
+<!-- Embedding Visualization — interactive UMAP/t-SNE/PCA scatter      -->
+<!-- ================================================================== -->
+<section class="fade-in" style="animation-delay: 0.15s;">
+  <div class="flex-between" style="margin-bottom: 16px;">
+    <p class="t-label" style="margin-bottom: 0;">Embedding Visualization</p>
+    <p class="t-mono" id="viz-status" style="font-size: 11px;">Loading...</p>
+  </div>
+
+  <div class="card" style="padding: 0; overflow: visible;">
+    <!-- Toolbar -->
+    <div class="flex-row" style="padding: 12px 16px; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--ds-border);">
+      <!-- Method buttons -->
+      <span class="t-mono" style="font-size: 10px; color: var(--ds-dim); margin-right: 4px;">METHOD</span>
+      <button id="viz-method-umap" class="btn btn-primary" style="font-size: 12px; padding: 4px 12px;">UMAP</button>
+      <button id="viz-method-tsne" class="btn" style="font-size: 12px; padding: 4px 12px;">t-SNE</button>
+      <button id="viz-method-pca" class="btn" style="font-size: 12px; padding: 4px 12px;">PCA</button>
+
+      <span class="t-mono" style="font-size: 1px; color: var(--ds-border); margin: 0 4px;">|</span>
+
+      <!-- Dimension toggle -->
+      <span class="t-mono" style="font-size: 10px; color: var(--ds-dim); margin-right: 4px;">DIM</span>
+      <button id="viz-dim-2d" class="btn btn-primary" style="font-size: 12px; padding: 4px 12px;">2D</button>
+      <button id="viz-dim-3d" class="btn" style="font-size: 12px; padding: 4px 12px;">3D</button>
+
+      <span class="t-mono" style="font-size: 1px; color: var(--ds-border); margin: 0 4px;">|</span>
+
+      <!-- Color by -->
+      <span class="t-mono" style="font-size: 10px; color: var(--ds-dim); margin-right: 4px;">COLOR</span>
+      <select id="viz-color-by" style="font-family: var(--ds-font-mono); font-size: 12px; background: var(--ds-surface); color: var(--ds-body); border: 1px solid var(--ds-border); border-radius: var(--ds-radius); padding: 4px 8px;">
+        <option value="sender">Sender</option>
+        <option value="conversation_id">Conversation</option>
+        <option value="timestamp">Time</option>
+        <option value="platform">Platform</option>
+      </select>
+
+      <span class="t-mono" style="font-size: 1px; color: var(--ds-border); margin: 0 4px;">|</span>
+
+      <!-- Timeline button -->
+      <button id="viz-timeline-btn" class="btn" style="font-size: 12px; padding: 4px 12px;">Timeline</button>
+    </div>
+
+    <!-- Plot area -->
+    <div style="position: relative; min-height: 500px;">
+      <div id="embedding-plot" style="width: 100%; height: 550px;"></div>
+
+      <!-- Loading overlay -->
+      <div id="viz-loading" style="display: none; position: absolute; inset: 0; background: rgba(10,10,10,0.85); align-items: center; justify-content: center; z-index: 10;">
+        <div style="text-align: center;">
+          <div style="width: 32px; height: 32px; border: 2px solid var(--ds-border); border-top-color: var(--ds-accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px;"></div>
+          <p class="t-mono" style="font-size: 12px;">Computing projection...</p>
+        </div>
+      </div>
+
+      <!-- Error banner -->
+      <div id="viz-error" style="display: none; position: absolute; bottom: 12px; left: 12px; right: 12px; background: var(--ds-surface); border: 1px solid #e07a5f44; border-left: 2px solid #e07a5f; border-radius: var(--ds-radius); padding: 10px 14px; z-index: 10;">
+        <div class="flex-between">
+          <span class="t-mono" style="font-size: 11px; color: #e07a5f;" id="viz-error-msg"></span>
+          <button id="viz-error-dismiss" class="btn-ghost" style="font-size: 11px; padding: 2px 8px;">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search bar -->
+    <div class="flex-row" style="padding: 10px 16px; border-top: 1px solid var(--ds-border); gap: 8px;">
+      <span class="t-mono" style="font-size: 10px; color: var(--ds-dim);">SEARCH</span>
+      <input id="viz-search-input" type="text" placeholder="Phrase or word to locate in embedding space..."
+             style="flex: 1; font-family: var(--ds-font-mono); font-size: 12px; background: var(--ds-bg); color: var(--ds-body); border: 1px solid var(--ds-border); border-radius: var(--ds-radius); padding: 6px 10px;">
+      <button id="viz-search-btn" class="btn btn-primary" style="font-size: 12px; padding: 4px 14px;">Find</button>
+    </div>
+  </div>
+
+  <!-- Pre-generated static views -->
+  <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+    <span class="t-mono" style="font-size: 10px; color: var(--ds-dim);">STATIC VIEWS</span>
+    <a href="data/plotly_global_map.html" target="_blank" class="btn" style="font-size: 12px; padding: 4px 12px; text-decoration: none;">Global Map</a>
+    <a href="data/plotly_response_pattern.html" target="_blank" class="btn" style="font-size: 12px; padding: 4px 12px; text-decoration: none;">Response Patterns</a>
+    <a href="data/plotly_topic_voronoi.html" target="_blank" class="btn" style="font-size: 12px; padding: 4px 12px; text-decoration: none;">Topic Voronoi</a>
+    <a href="data/plotly_temporal_drift.html" target="_blank" class="btn" style="font-size: 12px; padding: 4px 12px; text-decoration: none;">Temporal Drift</a>
+    <a href="data/plotly_semantic_field.html" target="_blank" class="btn" style="font-size: 12px; padding: 4px 12px; text-decoration: none;">Semantic Field</a>
+  </div>
+
+  <!-- Selection panel -->
+  <div id="selection-panel" style="display: none; margin-top: 12px;">
+    <div class="card">
+      <div class="flex-between" style="margin-bottom: 12px;">
+        <p class="t-label" style="margin-bottom: 0;">Selection</p>
+        <span class="t-mono" style="font-size: 10px; color: var(--ds-dim);">lasso or box-select points</span>
+      </div>
+      <div id="selection-list"></div>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #viz-method-umap.btn-primary,
+  #viz-method-tsne.btn-primary,
+  #viz-method-pca.btn-primary,
+  #viz-dim-2d.btn-primary,
+  #viz-dim-3d.btn-primary {
+    border-color: var(--ds-accent)55;
+    color: var(--ds-accent);
+  }
+</style>
+
+<script src="static/js/plotly.min.js"></script>
+<script src="static/js/embedding_viz.js"></script>

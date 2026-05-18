@@ -2,12 +2,12 @@
 """
 LLM-powered dashboard features for PersonalDB.
 Generates conversation summaries, topic clusters, and sentiment trends
-using local Ollama models (Llama 3.1 8B + nomic-embed-text).
+using local Ollama models.
 
 Usage:
-    python dashboard/scripts/run_llm_features.py --input data/processed/messages.jsonl
-    python dashboard/scripts/run_llm_features.py --input data/processed/messages.jsonl --force
-    python dashboard/scripts/run_llm_features.py --input data/processed/messages.jsonl --n-clusters 7
+    python dashboard/scripts/run_llm_features.py
+    python dashboard/scripts/run_llm_features.py --force
+    python dashboard/scripts/run_llm_features.py --n-clusters 7
 
 Output:
     dashboard/llm_cache/conversation_summaries.json
@@ -16,35 +16,36 @@ Output:
 """
 
 import argparse
-import json
 import re
 import sys
 from collections import defaultdict
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import ollama
 import numpy as np
 from sklearn.cluster import KMeans
 
+from personaldb.config import get_config
+from personaldb.store import Store
+
 
 # ---------------------------------------------------------------------------
-# Constants
+# Module-level defaults (overridden from config in main())
 # ---------------------------------------------------------------------------
 
 GENERATE_MODEL = "llama3.1:8b"
 EMBED_MODEL = "nomic-embed-text"
-
-CACHE_DIR = Path(__file__).resolve().parent.parent / "llm_cache"
-
 EMBED_BATCH_SIZE = 50
 CLUSTER_SAMPLE_SIZE = 20
 SENTIMENT_SAMPLE_SIZE = 15
 SUMMARY_SAMPLE_SIZE = 30
 
-MIN_CONTENT_LENGTH = 20  # skip very short messages for clustering
-MIN_SENTIMENT_LENGTH = 10  # skip very short messages for sentiment
+MIN_CONTENT_LENGTH = 20
+MIN_SENTIMENT_LENGTH = 10
+
+# Set in main()
+store: Store = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -52,13 +53,11 @@ MIN_SENTIMENT_LENGTH = 10  # skip very short messages for sentiment
 # ---------------------------------------------------------------------------
 
 def log(msg: str) -> None:
-    """Print a timestamped log message to stdout."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {msg}", flush=True)
 
 
 def check_ollama() -> bool:
-    """Return True if the local Ollama server is reachable."""
     try:
         ollama.list()
         return True
@@ -66,80 +65,16 @@ def check_ollama() -> bool:
         return False
 
 
-def load_messages(input_path: str) -> List[Dict[str, Any]]:
-    """Load normalized messages from a JSON or JSONL file.
-
-    Normalized format (list of objects):
-        sender_name, content, timestamp_ms, platform, conversation_id
-    """
-    path = Path(input_path)
-    if not path.exists():
-        print(f"Error: input file not found: {input_path}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(path, "r", encoding="utf-8") as fh:
-        if path.suffix == ".jsonl":
-            records: List[Dict[str, Any]] = []
-            for line in fh:
-                line = line.strip()
-                if line:
-                    records.append(json.loads(line))
-            return records
-        data = json.load(fh)
-
-    if isinstance(data, list):
-        return data
-
-    if isinstance(data, dict):
-        # Try common wrapping keys
-        for key in ("messages", "records", "data"):
-            val = data.get(key)
-            if isinstance(val, list):
-                return val
-        # Fallback: first list-valued key
-        for val in data.values():
-            if isinstance(val, list):
-                return val
-
-    print("Error: could not extract a list of messages from the input file.", file=sys.stderr)
-    sys.exit(1)
-
-
-def load_cache(filename: str) -> Optional[Any]:
-    """Load cached JSON data; return None if missing or corrupt."""
-    path = CACHE_DIR / filename
-    if not path.exists():
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return json.load(fh)
-    except (json.JSONDecodeError, OSError) as exc:
-        log(f"Warning: cache file {filename} is corrupt ({exc}); will regenerate.")
-        return None
-
-
-def save_cache(filename: str, data: Any) -> None:
-    """Persist data as JSON to the cache directory."""
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path = CACHE_DIR / filename
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-
-
 def clamp_score(value: float) -> float:
-    """Clamp a float to the interval [-1.0, 1.0]."""
     return max(-1.0, min(1.0, value))
 
 
 def extract_float_from_text(raw: str) -> float:
-    """Robustly extract a floating-point number from an LLM response."""
-    # Try the whole string first
     stripped = raw.strip()
     try:
         return float(stripped)
     except ValueError:
         pass
-    # Look for something that looks like a number
     match = re.search(r"-?\d+\.?\d*", stripped)
     if match:
         return float(match.group())
@@ -153,19 +88,14 @@ def extract_float_from_text(raw: str) -> float:
 def generate_conversation_summaries(
     messages: List[Dict[str, Any]], force: bool = False
 ) -> Dict[str, Any]:
-    """Group messages by conversation_id and ask Ollama to summarize each one.
-
-    Cached to ``dashboard/llm_cache/conversation_summaries.json``.
-    """
     cache_file = "conversation_summaries.json"
 
-    if not force:
-        cached = load_cache(cache_file)
+    if not force and not store.is_stale("conversation_summaries", "messages"):
+        cached = store.get_llm_cache(cache_file)
         if cached is not None:
-            log("Conversation summaries: cache hit (use --force to regenerate).")
+            log("Conversation summaries: cache valid (source unchanged). Use --force to override.")
             return cached
 
-    # Group
     convo_buckets: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for msg in messages:
         cid = msg.get("conversation_id", "unknown")
@@ -176,18 +106,16 @@ def generate_conversation_summaries(
 
     summaries: Dict[str, Any] = {}
     for idx, (cid, msgs) in enumerate(sorted(convo_buckets.items()), start=1):
-        # Collect sender names that appear in this conversation
         senders = sorted(
             {m.get("sender_name", "Unknown") for m in msgs if m.get("sender_name")}
         )
 
-        # Sample messages evenly across the conversation timeline
         n = len(msgs)
         if n <= SUMMARY_SAMPLE_SIZE:
             samples = msgs
         else:
             step = max(1, n // SUMMARY_SAMPLE_SIZE)
-            samples = [msgs[j] for j in range(0, n, step)]  # noqa: F841
+            samples = [msgs[j] for j in range(0, n, step)]
             samples = samples[:SUMMARY_SAMPLE_SIZE]
 
         message_block = "\n".join(
@@ -222,8 +150,9 @@ def generate_conversation_summaries(
             "generated_at": datetime.now().isoformat(),
         }
 
-    save_cache(cache_file, summaries)
-    log(f"Conversation summaries: saved {len(summaries)} entries to {CACHE_DIR / cache_file}")
+    store.save_llm_cache(cache_file, summaries)
+    store.mark_fresh("conversation_summaries", "messages")
+    log(f"Conversation summaries: saved {len(summaries)} entries.")
     return summaries
 
 
@@ -232,7 +161,6 @@ def generate_conversation_summaries(
 # ---------------------------------------------------------------------------
 
 def _embed_texts(texts: List[str]) -> List[List[float]]:
-    """Batch-embed a list of texts via Ollama (nomic-embed-text)."""
     all_embeddings: List[List[float]] = []
     total = len(texts)
     for start in range(0, total, EMBED_BATCH_SIZE):
@@ -249,7 +177,6 @@ def _embed_texts(texts: List[str]) -> List[List[float]]:
 
 
 def _label_cluster(cluster_msgs: List[Dict[str, Any]], label_idx: int) -> Dict[str, Any]:
-    """Ask the LLM to name a topic cluster from its sampled messages."""
     samples = cluster_msgs[:CLUSTER_SAMPLE_SIZE]
     sample_block = "\n".join(
         f"  [{m.get('sender_name', '?')}]: {m.get('content', '')[:300]}"
@@ -277,9 +204,7 @@ def _label_cluster(cluster_msgs: List[Dict[str, Any]], label_idx: int) -> Dict[s
     return {
         "label": label,
         "message_count": len(cluster_msgs),
-        "sample_texts": [
-            m.get("content", "")[:200] for m in samples[:5]
-        ],
+        "sample_texts": [m.get("content", "")[:200] for m in samples[:5]],
     }
 
 
@@ -288,19 +213,14 @@ def generate_topic_clusters(
     force: bool = False,
     n_clusters: int = 5,
 ) -> Dict[str, Any]:
-    """Embed message texts with nomic-embed-text, cluster with KMeans, label with LLM.
-
-    Cached to ``dashboard/llm_cache/topic_clusters.json``.
-    """
     cache_file = "topic_clusters.json"
 
-    if not force:
-        cached = load_cache(cache_file)
+    if not force and not store.is_stale("topic_clusters", "messages"):
+        cached = store.get_llm_cache(cache_file)
         if cached is not None:
-            log("Topic clusters: cache hit (use --force to regenerate).")
+            log("Topic clusters: cache valid (source unchanged). Use --force to override.")
             return cached
 
-    # Collect messages with enough content
     text_msgs: List[Dict[str, Any]] = []
     texts: List[str] = []
     for msg in messages:
@@ -315,7 +235,6 @@ def generate_topic_clusters(
         log(f"Topic clusters: only {len(texts)} valid messages; reducing k from {old_k} to {n_clusters}.")
 
     log(f"Topic clusters: embedding {len(texts)} messages (k={n_clusters})...")
-
     embeddings = _embed_texts(texts)
 
     if len(embeddings) < n_clusters:
@@ -331,7 +250,6 @@ def generate_topic_clusters(
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10, max_iter=300)
     labels = kmeans.fit_predict(emb_array)
 
-    # Group messages by cluster label
     cluster_buckets: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
     for i, label in enumerate(labels.tolist()):
         cluster_buckets[label].append(text_msgs[i])
@@ -351,8 +269,9 @@ def generate_topic_clusters(
         "generated_at": datetime.now().isoformat(),
     }
 
-    save_cache(cache_file, result)
-    log(f"Topic clusters: saved to {CACHE_DIR / cache_file}")
+    store.save_llm_cache(cache_file, result)
+    store.mark_fresh("topic_clusters", "messages")
+    log(f"Topic clusters: saved.")
     return result
 
 
@@ -363,19 +282,14 @@ def generate_topic_clusters(
 def generate_sentiment_trends(
     messages: List[Dict[str, Any]], force: bool = False
 ) -> Dict[str, Any]:
-    """Score sentiment per person per month using Ollama.
-
-    Cached to ``dashboard/llm_cache/sentiment_trends.json``.
-    """
     cache_file = "sentiment_trends.json"
 
-    if not force:
-        cached = load_cache(cache_file)
+    if not force and not store.is_stale("sentiment_trends", "messages"):
+        cached = store.get_llm_cache(cache_file)
         if cached is not None:
-            log("Sentiment trends: cache hit (use --force to regenerate).")
+            log("Sentiment trends: cache valid (source unchanged). Use --force to override.")
             return cached
 
-    # Group by (sender_name, year-month)
     person_month: Dict[str, Dict[str, List[str]]] = defaultdict(
         lambda: defaultdict(list)
     )
@@ -414,9 +328,7 @@ def generate_sentiment_trends(
                 }
                 continue
 
-            message_block = "\n".join(
-                f"  - {t[:400]}" for t in samples
-            )
+            message_block = "\n".join(f"  - {t[:400]}" for t in samples)
 
             prompt = (
                 "You are analyzing sentiment in personal chat messages. "
@@ -450,8 +362,9 @@ def generate_sentiment_trends(
         "generated_at": datetime.now().isoformat(),
     }
 
-    save_cache(cache_file, result)
-    log(f"Sentiment trends: saved {len(trends)} people to {CACHE_DIR / cache_file}")
+    store.save_llm_cache(cache_file, result)
+    store.mark_fresh("sentiment_trends", "messages")
+    log(f"Sentiment trends: saved {len(trends)} people.")
     return result
 
 
@@ -460,62 +373,39 @@ def generate_sentiment_trends(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    # Path hack: allow dashboard/scripts/ to import from src/
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-    from src.config import get_config
-    cfg = get_config()
-
-    # Override module-level constants from config
-    global GENERATE_MODEL, EMBED_MODEL, CACHE_DIR
+    global GENERATE_MODEL, EMBED_MODEL
     global EMBED_BATCH_SIZE, CLUSTER_SAMPLE_SIZE, SENTIMENT_SAMPLE_SIZE, SUMMARY_SAMPLE_SIZE
+    global store
+
+    cfg = get_config()
+    store = Store(cfg)
+
     GENERATE_MODEL = cfg["models"]["generate"]
     EMBED_MODEL = cfg["models"]["embed"]
-    CACHE_DIR = Path(cfg["dashboard"]["llm_cache_dir"])
     EMBED_BATCH_SIZE = cfg["ollama"]["embed_batch_size"]
     CLUSTER_SAMPLE_SIZE = cfg["dashboard"]["cluster_sample_size"]
     SENTIMENT_SAMPLE_SIZE = cfg["dashboard"]["sentiment_sample_size"]
     SUMMARY_SAMPLE_SIZE = cfg["dashboard"]["summary_sample_size"]
 
-    default_input = str(cfg["paths"]["data_processed"]) + "/messages.jsonl"
     default_n_clusters = cfg["dashboard"]["n_clusters"]
 
     parser = argparse.ArgumentParser(
         description="Generate LLM-powered dashboard features for PersonalDB."
     )
-    parser.add_argument(
-        "--input", type=str, default=default_input,
-        help="Path to normalized JSON(L) file of messages "
-             "(keys: sender_name, content, timestamp_ms, platform, conversation_id). "
-             f"(default: {default_input})"
-    )
-    parser.add_argument(
-        "--force", action="store_true",
-        help="Regenerate all features even when valid cache files exist."
-    )
-    parser.add_argument(
-        "--n-clusters", type=int, default=default_n_clusters,
-        help=f"Number of topic clusters for KMeans (default: {default_n_clusters})."
-    )
-    parser.add_argument(
-        "--skip-summaries", action="store_true",
-        help="Skip conversation summary generation."
-    )
-    parser.add_argument(
-        "--skip-clusters", action="store_true",
-        help="Skip topic clustering."
-    )
-    parser.add_argument(
-        "--skip-sentiment", action="store_true",
-        help="Skip sentiment trend generation."
-    )
-
+    parser.add_argument("--force", action="store_true",
+                        help="Regenerate all features even when valid cache files exist.")
+    parser.add_argument("--n-clusters", type=int, default=default_n_clusters,
+                        help=f"Number of topic clusters for KMeans (default: {default_n_clusters}).")
+    parser.add_argument("--skip-summaries", action="store_true",
+                        help="Skip conversation summary generation.")
+    parser.add_argument("--skip-clusters", action="store_true",
+                        help="Skip topic clustering.")
+    parser.add_argument("--skip-sentiment", action="store_true",
+                        help="Skip sentiment trend generation.")
     args = parser.parse_args()
 
     log("=== PersonalDB LLM Dashboard Features ===")
 
-    # ------------------------------------------------------------------
-    # Pre-flight: Ollama reachable
-    # ------------------------------------------------------------------
     log("Checking Ollama connection ...")
     if not check_ollama():
         print(
@@ -529,38 +419,26 @@ def main() -> None:
         sys.exit(1)
     log("Ollama is running.")
 
-    # ------------------------------------------------------------------
-    # Load data
-    # ------------------------------------------------------------------
-    log(f"Loading messages from {args.input} ...")
-    messages = load_messages(args.input)
+    log("Loading messages via Store ...")
+    messages = store.get_messages()
     log(f"Loaded {len(messages)} messages.")
 
     if not messages:
         log("No messages found; nothing to do.")
         sys.exit(0)
 
-    # ------------------------------------------------------------------
-    # Feature 1: Conversation summaries
-    # ------------------------------------------------------------------
     if args.skip_summaries:
         log("Skipping conversation summaries (--skip-summaries).")
     else:
         log("--- Feature 1/3: Conversation Summaries ---")
         generate_conversation_summaries(messages, force=args.force)
 
-    # ------------------------------------------------------------------
-    # Feature 2: Topic clusters
-    # ------------------------------------------------------------------
     if args.skip_clusters:
         log("Skipping topic clusters (--skip-clusters).")
     else:
         log("--- Feature 2/3: Topic Clustering ---")
         generate_topic_clusters(messages, force=args.force, n_clusters=args.n_clusters)
 
-    # ------------------------------------------------------------------
-    # Feature 3: Sentiment trends
-    # ------------------------------------------------------------------
     if args.skip_sentiment:
         log("Skipping sentiment trends (--skip-sentiment).")
     else:
