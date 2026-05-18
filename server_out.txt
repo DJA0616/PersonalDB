@@ -1,0 +1,8 @@
+[server] Loading precomputed visualization data...
+[server] Loaded 57706 coords from F:\Documents\Repositories\PersonalDB\dashboard\data\embedding_coords_2d.json
+[server] Loaded 57706 metadata entries
+[server] Loaded 23 timeline frames
+[server] Loaded umap reducer from F:\Documents\Repositories\PersonalDB\dashboard\data\umap_2d_reducer.pkl
+[server] PersonalDB Dashboard: http://localhost:8083
+ * Serving Flask app 'server'
+ * Debug mode: off

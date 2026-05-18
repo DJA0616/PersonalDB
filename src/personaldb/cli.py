@@ -75,6 +75,10 @@ def cmd_retrieve(args):
         "--query", args.query,
         "--top-k", str(args.top_k),
     ]
+    if args.expand:
+        sys.argv.append("--expand")
+    if args.hybrid:
+        sys.argv.append("--hybrid")
     main()
 
 
@@ -206,6 +210,8 @@ def main():
     p_ret = sub.add_parser("retrieve", help="Semantic search over message archive")
     p_ret.add_argument("query", help="Search query text")
     p_ret.add_argument("--top-k", type=int, default=3)
+    p_ret.add_argument("--expand", action="store_true", help="Expand query into casual chat variants via LLM")
+    p_ret.add_argument("--hybrid", action="store_true", help="Use hybrid BM25+vector search")
 
     # -- generate --
     p_gen = sub.add_parser("generate", help="Generate draft reply from context")

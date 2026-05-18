@@ -96,10 +96,27 @@ def main():
     if has_llm:
         print("LLM caches loaded.")
         # Normalize dict caches to lists for template iteration
-        for key in LLM_CACHE_KEYS:
-            val = llm_data.get(key)
-            if isinstance(val, dict):
-                llm_data[key] = list(val.values())
+        # conversation_summaries: {cid: summary} → list of summaries
+        val = llm_data.get("conversation_summaries")
+        if isinstance(val, dict):
+            llm_data["conversation_summaries"] = list(val.values())
+
+        # topic_clusters: {clusters: {name: data}, n_clusters, total_messages} → list of cluster dicts
+        val = llm_data.get("topic_clusters")
+        if isinstance(val, dict) and "clusters" in val:
+            llm_data["topic_clusters"] = list(val["clusters"].values())
+        elif isinstance(val, dict):
+            llm_data["topic_clusters"] = list(val.values())
+
+        # sentiment_trends: {people: {name: monthly}} → list of {name, months}
+        val = llm_data.get("sentiment_trends")
+        if isinstance(val, dict) and "people" in val:
+            llm_data["sentiment_trends"] = [
+                {"name": name, "months": months}
+                for name, months in val["people"].items()
+            ]
+        elif isinstance(val, dict):
+            llm_data["sentiment_trends"] = list(val.values())
     elif not args.skip_llm:
         print("No LLM caches found (run 'features' command first).")
 

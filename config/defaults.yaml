@@ -3,7 +3,7 @@
 
 # ── Models ──────────────────────────────────────────
 models:
-  embed: "nomic-embed-text"
+  embed: "qwen3-embedding:0.6b"
   generate: "batiai/qwen3.6-35b:iq3"
 
 # ── Ollama ──────────────────────────────────────────
@@ -51,13 +51,20 @@ preprocess:
 embed:
   collection_name: "instagram_chunks"
   incremental: false
-  batch_size: 50
+  batch_size: 100
 
 # ── Retrieval ───────────────────────────────────────
 retrieve:
   top_k: 3
   static_layer_weight: 0.3
   dynamic_layer_weight: 0.7
+  expand:
+    enabled: false
+    num_variants: 3
+    temperature: 0.8
+  hybrid:
+    enabled: false
+    rrf_k: 60
 
 # ── Generation ──────────────────────────────────────
 generate:

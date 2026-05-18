@@ -47,7 +47,9 @@ def compute_overview_stats(messages):
     people = set()
     conversations = set()
     for m in messages:
-        people.add(m.get("sender_name", "Unknown"))
+        for p in m.get("participants", []):
+            if p:
+                people.add(p)
         conversations.add(m.get("conversation_id", "unknown"))
     return {
         "total_messages": len(messages),

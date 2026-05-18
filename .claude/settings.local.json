@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(frontend-design)",
+      "PowerShell(cd \"F:\\\\Documents\\\\Repositories\\\\PersonalDB\"; $env:PYTHONIOENCODING=\"utf-8\"; python src/retrieve/retrieve.py --query \"Someone asked me how I'm doing after a long day at school. I'm tired but don't want to be dramatic.\" --top-k 5 > data/processed/test_context.json 2>&1)",
+      "PowerShell(cd \"F:\\\\Documents\\\\Repositories\\\\PersonalDB\"; $env:PYTHONIOENCODING=\"utf-8\"; python src/retrieve/retrieve.py --query \"Someone asked me how I'm doing after a long day at school. I'm tired but don't want to be dramatic.\" --top-k 5 2>&1 | ForEach-Object { $_ })",
+      "PowerShell(python -c \"import json; d=json.load\\(open\\(r'F:\\\\Documents\\\\Repositories\\\\PersonalDB\\\\dashboard\\\\data\\\\embedding_metadata.json'\\)\\); print\\(json.dumps\\(d[:2], indent=2, default=str\\)\\)\")",
+      "PowerShell(python -c \"import json; d=json.load\\(open\\(r'F:\\\\Documents\\\\Repositories\\\\PersonalDB\\\\dashboard\\\\data\\\\embedding_metadata.json', encoding='utf-8'\\)\\); print\\(json.dumps\\(d[:2], indent=2, default=str\\)\\)\")",
+      "PowerShell(python F:\\\\Documents\\\\Repositories\\\\PersonalDB\\\\_check_attach.py)",
+      "PowerShell(try { Invoke-WebRequest -Uri \"http://localhost:11434/api/tags\" -TimeoutSec 5 | Select-Object -ExpandProperty Content | ConvertFrom-Json | Select-Object -ExpandProperty models | Select-Object -ExpandProperty name } catch { Write-Output \"OLLAMA_NOT_RUNNING: $_\" })",
+      "PowerShell(python F:\\\\Documents\\\\Repositories\\\\PersonalDB\\\\_verify_data.py)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(python -c \"import requests, json; r=requests.post\\('http://localhost:11434/api/embed', json={'model':'nomic-embed-text','input':['test']}\\); print\\(json.dumps\\(r.json\\(\\), indent=2\\)[:500]\\)\")",
+      "PowerShell(python -c \"import requests; r=requests.post\\('http://localhost:11434/api/embeddings', json={'model':'nomic-embed-text','prompt':'test'}\\); print\\(r.status_code, list\\(r.json\\(\\).keys\\(\\)\\)[:5]\\)\")",
+      "PowerShell($size = \\(Get-Item \"F:\\\\Documents\\\\Repositories\\\\PersonalDB\\\\dashboard\\\\index.html\"\\).Length; $content = Get-Content \"F:\\\\Documents\\\\Repositories\\\\PersonalDB\\\\dashboard\\\\index.html\" -Raw; $hasTimeline = $content -match \"timeline_monthly\"; $hasSearch = $content -match \"viz-search-input\"; $hasEmbedPlot = $content -match \"embedding-plot\"; Write-Output \"Size: $\\([math]::Round\\($size/1KB, 1\\)\\) KB`nTimeline chart: $hasTimeline`nSearch input: $hasSearch`nEmbedding plot: $hasEmbedPlot\")",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_run_code_unsafe"
+    ]
+  }
+}

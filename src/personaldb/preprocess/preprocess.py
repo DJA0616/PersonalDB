@@ -12,6 +12,22 @@ from typing import List, Dict, Any
 from personaldb.config import get_config
 
 
+def normalize_chat_text(text: str) -> str:
+    """
+    Normalize chat text before embedding to reduce noise.
+    - Collapse 3+ repeated chars to 2 (helloooooo -> helloo)
+    - Collapse repeated !? punctuation
+    - Collapse 3+ dots to ..
+    - Normalize whitespace
+    Preserves case and emoji — both carry meaning in chat.
+    """
+    text = re.sub(r'(\w)\1{2,}', r'\1\1', text)
+    text = re.sub(r'([!?])[!?\s]*[!?]', r'\1', text)
+    text = re.sub(r'\.{3,}', '..', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
 def is_emoji_only(text: str) -> bool:
     """
     Check if text consists only of emojis and whitespace.
@@ -97,10 +113,21 @@ def tag_chunk(chunk: List[Dict[str, Any]]) -> Dict[str, Any]:
     # Inferred context: placeholder (could be derived from conversation title or keywords)
     is_group = len(participants) > 2
     # Build chunk record
+    # Build structured combined_text: conversation header + sender-labeled lines
+    participant_names = ', '.join(participants) if participants else 'unknown'
+    convo_title = first.get('conversation_title', '')
+    header = f"[Conversation with {participant_names}]" + (f" ({convo_title})" if convo_title else "")
+    lines = [header]
+    for msg in chunk:
+        sender = msg.get('sender_name', msg.get('sender', 'unknown'))
+        text = msg.get('enriched_text', msg.get('text', ''))
+        lines.append(f"{sender}: {text}")
+    combined_text = normalize_chat_text('\n'.join(lines))
+
     tagged = {
         'chunk_id': f"{first.get('conversation_id')}_{chunk[0].get('timestamp_ms')}_{len(chunk)}",
         'conversation_id': first.get('conversation_id'),
-        'conversation_title': first.get('conversation_title', ''),
+        'conversation_title': convo_title,
         'is_group': is_group,
         'participants': participants,
         'platform': 'instagram',
@@ -115,8 +142,7 @@ def tag_chunk(chunk: List[Dict[str, Any]]) -> Dict[str, Any]:
             }
             for msg in chunk
         ],
-        # Combined text uses enriched text when available
-        'combined_text': ' '.join([msg.get('enriched_text', msg.get('text', '')) for msg in chunk])
+        'combined_text': combined_text
     }
     return tagged
 
