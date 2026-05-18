@@ -4,13 +4,13 @@
 # ── Models ──────────────────────────────────────────
 models:
   embed: "nomic-embed-text"
-  generate: "llama3.1:8b"
+  generate: "batiai/qwen3.6-35b:iq3"
 
 # ── Ollama ──────────────────────────────────────────
 ollama:
   api_url: "http://localhost:11434/api/embeddings"
   generate_url: "http://localhost:11434/api/generate"
-  embed_batch_size: 50
+  embed_batch_size: 500
   request_timeout: 120
 
 # ── Paths ───────────────────────────────────────────

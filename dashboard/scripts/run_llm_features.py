@@ -34,9 +34,9 @@ from personaldb.store import Store
 # Module-level defaults (overridden from config in main())
 # ---------------------------------------------------------------------------
 
-GENERATE_MODEL = "llama3.1:8b"
+GENERATE_MODEL = "batiai/qwen3.6-35b:iq3"
 EMBED_MODEL = "nomic-embed-text"
-EMBED_BATCH_SIZE = 50
+EMBED_BATCH_SIZE = 500
 CLUSTER_SAMPLE_SIZE = 20
 SENTIMENT_SAMPLE_SIZE = 15
 SUMMARY_SAMPLE_SIZE = 30

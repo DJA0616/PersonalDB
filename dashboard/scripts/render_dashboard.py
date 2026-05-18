@@ -95,6 +95,11 @@ def main():
 
     if has_llm:
         print("LLM caches loaded.")
+        # Normalize dict caches to lists for template iteration
+        for key in LLM_CACHE_KEYS:
+            val = llm_data.get(key)
+            if isinstance(val, dict):
+                llm_data[key] = list(val.values())
     elif not args.skip_llm:
         print("No LLM caches found (run 'features' command first).")
 

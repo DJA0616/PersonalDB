@@ -111,6 +111,7 @@ def tag_chunk(chunk: List[Dict[str, Any]]) -> Dict[str, Any]:
             {
                 'text': msg.get('enriched_text', msg['text']),
                 'timestamp': msg.get('timestamp_ms'),
+                'sender_name': msg.get('sender_name', msg.get('sender', '')),
             }
             for msg in chunk
         ],

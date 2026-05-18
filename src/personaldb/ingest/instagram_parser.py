@@ -62,11 +62,34 @@ def list_senders(inbox):
     return counter
 
 
+SYSTEM_MSG_PATTERNS = (
+    'sent an attachment',
+    'liked a message',
+    'reacted',
+)
+
+
+def _has_reply(messages, idx, me):
+    """Return True if message at idx receives a real reply from another sender."""
+    for j in range(idx + 1, min(idx + 5, len(messages))):
+        nxt = messages[j]
+        nxt_sender = fix_encoding(nxt.get('sender_name', ''))
+        if nxt_sender == me:
+            continue
+        nxt_content = nxt.get('content', '') or ''
+        if nxt_content and not any(p in nxt_content.lower() for p in SYSTEM_MSG_PATTERNS):
+            return True
+    return False
+
+
 def parse(inbox, me):
     """Return normalized sent-message records authored by `me`.
 
     Each record includes the preceding message as `context` so the
     preprocessor can judge tone/meaning of short replies.
+
+    Solo "attachment sent" messages are filtered out — only kept when
+    another sender replied with real text (starting a conversation).
     """
     records = []
     for convo_dir, data in iter_conversations(inbox):
@@ -74,14 +97,21 @@ def parse(inbox, me):
                         for p in data.get('participants', [])]
         is_group = len(participants) > 2
         title = fix_encoding(data.get('title', convo_dir.name))
+        messages = data.get('messages', [])
         prev_msg = None  # track preceding message for context
-        for m in data.get('messages', []):
+        for i, m in enumerate(messages):
             sender = fix_encoding(m.get('sender_name', ''))
             content = m.get('content')
             if sender == me:
                 if not content:          # photos, shares, calls — no text
                     prev_msg = None      # still advance; nothing to attach
                     continue
+                text = fix_encoding(content)
+                # Skip solo attachment-sent messages — only keep if replied to
+                if 'sent an attachment' in text.lower():
+                    if not _has_reply(messages, i, me):
+                        prev_msg = None
+                        continue
                 record = {
                     'conversation_id': convo_dir.name,
                     'conversation_title': title,
@@ -89,7 +119,7 @@ def parse(inbox, me):
                     'participants': participants,
                     'sender': sender,
                     'timestamp_ms': m.get('timestamp_ms'),
-                    'text': fix_encoding(content),
+                    'text': text,
                 }
                 if prev_msg is not None:
                     record['context'] = prev_msg

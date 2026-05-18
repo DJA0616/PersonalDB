@@ -76,6 +76,15 @@ def main():
             chunk_id = chunk.get('chunk_id', f'chunk_{batch_start + i}')
             ids.append(chunk_id)
             embeddings.append(batch_embeddings[i])
+            # Extract timestamp and sender from chunk messages
+            msgs = chunk.get('messages', [])
+            timestamps = [m.get('timestamp') for m in msgs if m.get('timestamp')]
+            sender_name = ''
+            for m in msgs:
+                sn = m.get('sender_name', '')
+                if sn:
+                    sender_name = sn
+                    break
             metadatas.append({
                 'conversation_id': chunk.get('conversation_id'),
                 'conversation_title': chunk.get('conversation_title'),
@@ -85,6 +94,8 @@ def main():
                 'relationship_type': chunk.get('relationship_type'),
                 'inferred_context': chunk.get('inferred_context'),
                 'message_count': chunk.get('message_count'),
+                'timestamp_ms': min(timestamps) if timestamps else 0,
+                'sender_name': sender_name or '',
             })
             documents.append(batch_texts[i])
 

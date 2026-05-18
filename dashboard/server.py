@@ -51,7 +51,7 @@ _EMBED_MODEL = None
 def _ollama_embed_url():
     global _OLLAMA_EMBED_URL
     if _OLLAMA_EMBED_URL is None:
-        _OLLAMA_EMBED_URL = store._cfg["ollama"]["api_url"].replace("/api/embeddings", "/api/embed")
+        _OLLAMA_EMBED_URL = store._cfg["ollama"]["api_url"]
     return _OLLAMA_EMBED_URL
 
 
